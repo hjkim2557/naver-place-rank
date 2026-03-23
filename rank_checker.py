@@ -5,7 +5,7 @@ import httpx
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-SEARCH_URL = "https://map.naver.com/v5/api/search"
+SEARCH_URL = "https://map.naver.com/p/api/search"
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -23,7 +23,7 @@ async def check_rank(keyword: str, place_name: str) -> dict:
     rank = 0
 
     try:
-        async with httpx.AsyncClient(headers=HEADERS, timeout=10) as client:
+        async with httpx.AsyncClient(headers=HEADERS, timeout=10, follow_redirects=True) as client:
             for page in range(1, (MAX_RANK // DISPLAY_COUNT) + 2):
                 params = {
                     "caller": "pcweb",
