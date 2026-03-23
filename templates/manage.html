@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>업체 관리 - 네이버 플레이스 순위</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa; color: #333;
+            min-height: 100vh; padding: 40px 16px;
+            display: flex; justify-content: center; align-items: flex-start;
+        }
+        .container {
+            max-width: 600px; width: 100%;
+        }
+        .card {
+            background: #fff; border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            padding: 32px; margin-bottom: 20px;
+        }
+        h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+        .subtitle { color: #888; font-size: 14px; margin-bottom: 24px; }
+        .nav { margin-bottom: 20px; }
+        .nav a {
+            color: #03c75a; text-decoration: none; font-size: 14px; font-weight: 600;
+        }
+        .form-group { margin-bottom: 14px; }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #555; }
+        input[type="text"] {
+            width: 100%; padding: 10px 14px; border: 1.5px solid #ddd;
+            border-radius: 8px; font-size: 15px; outline: none;
+        }
+        input[type="text"]:focus { border-color: #03c75a; }
+        .hint { font-size: 11px; color: #aaa; margin-top: 2px; }
+        button, .btn {
+            padding: 10px 20px; border: none; border-radius: 8px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            text-decoration: none; display: inline-block;
+        }
+        .btn-primary { background: #03c75a; color: #fff; width: 100%; margin-top: 8px; padding: 12px; }
+        .btn-primary:hover { background: #02b350; }
+        .btn-danger { background: #ff4d4f; color: #fff; font-size: 12px; padding: 6px 12px; }
+        .btn-report { background: #03c75a; color: #fff; font-size: 12px; padding: 6px 12px; }
+        .shop-list { list-style: none; }
+        .shop-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 0; border-bottom: 1px solid #f0f0f0;
+        }
+        .shop-item:last-child { border-bottom: none; }
+        .shop-info { flex: 1; }
+        .shop-keyword { font-weight: 700; font-size: 15px; }
+        .shop-name { color: #888; font-size: 13px; margin-top: 2px; }
+        .shop-actions { display: flex; gap: 8px; }
+        .empty { text-align: center; color: #bbb; padding: 32px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">← 순위 조회로 돌아가기</a>
+        </div>
+
+        <div class="card">
+            <h1>업체 등록</h1>
+            <p class="subtitle">등록하면 매일 자동으로 순위를 기록합니다</p>
+            <form action="/register" method="post">
+                <div class="form-group">
+                    <label>검색 키워드</label>
+                    <input type="text" name="keyword" placeholder="예: 강남역맛집" required>
+                </div>
+                <div class="form-group">
+                    <label>업체명</label>
+                    <input type="text" name="place_name" placeholder="예: 트라가 강남역점">
+                </div>
+                <div class="form-group">
+                    <label>플레이스 ID (선택)</label>
+                    <input type="text" name="place_id" placeholder="예: 1903220134">
+                    <p class="hint">동명 업체 구분 시 사용. 네이버 지도 URL의 place/ 뒤 숫자</p>
+                </div>
+                <button type="submit" class="btn btn-primary">업체 등록</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h1>등록된 업체</h1>
+            {% if shops %}
+            <ul class="shop-list">
+                {% for shop in shops %}
+                <li class="shop-item">
+                    <div class="shop-info">
+                        <div class="shop-keyword">{{ shop.keyword }}</div>
+                        <div class="shop-name">
+                            {{ shop.place_name or shop.place_id }}
+                        </div>
+                    </div>
+                    <div class="shop-actions">
+                        <a href="/report/{{ shop.id }}" class="btn btn-report">리포트</a>
+                        <form action="/unregister/{{ shop.id }}" method="post" style="display:inline"
+                              onsubmit="return confirm('삭제하시겠습니까?')">
+                            <button type="submit" class="btn btn-danger">삭제</button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty">아직 등록된 업체가 없습니다</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
