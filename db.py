@@ -20,11 +20,11 @@ def _url(table: str) -> str:
     return f"{SUPABASE_URL}/rest/v1/{table}"
 
 
-async def add_shop(keyword: str, place_name: str, place_id: str) -> dict:
+async def add_shop(keyword: str, place_name: str, place_id: str, email: str = "") -> dict:
     async with httpx.AsyncClient(headers=HEADERS, timeout=10) as c:
         resp = await c.post(
             _url("shops"),
-            json={"keyword": keyword, "place_name": place_name, "place_id": place_id},
+            json={"keyword": keyword, "place_name": place_name, "place_id": place_id, "email": email},
         )
         resp.raise_for_status()
         return resp.json()[0]

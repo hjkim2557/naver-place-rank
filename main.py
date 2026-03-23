@@ -1,12 +1,37 @@
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from rank_checker import check_rank
 from db import add_shop, get_shops, get_shop, delete_shop, add_rank_record, get_rank_history
+from email_sender import send_report
 
 app = FastAPI(title="네이버 플레이스 순위 조회")
 templates = Jinja2Templates(directory="templates")
+
+
+def _calc_weekly_avg(history: list) -> dict:
+    weeks = {1: [], 2: [], 3: [], 4: []}
+    now = datetime.now(timezone.utc)
+    for record in history:
+        checked = datetime.fromisoformat(record["checked_at"].replace("Z", "+00:00"))
+        days_ago = (now - checked).days
+        if days_ago < 7:
+            weeks[4].append(record)
+        elif days_ago < 14:
+            weeks[3].append(record)
+        elif days_ago < 21:
+            weeks[2].append(record)
+        else:
+            weeks[1].append(record)
+
+    weekly_avg = {}
+    for week, records in weeks.items():
+        ranks = [r["rank"] for r in records if r["rank"] is not None]
+        weekly_avg[week] = round(sum(ranks) / len(ranks)) if ranks else None
+    return weekly_avg
 
 
 @app.head("/")
@@ -48,15 +73,17 @@ async def register_shop(
     keyword: str = Form(...),
     place_name: str = Form(""),
     place_id: str = Form(""),
+    email: str = Form(""),
 ):
     keyword = keyword.strip()
     place_name = place_name.strip()
     place_id = place_id.strip()
+    email = email.strip()
 
     if not keyword or (not place_name and not place_id):
         return RedirectResponse("/manage", status_code=303)
 
-    await add_shop(keyword, place_name, place_id)
+    await add_shop(keyword, place_name, place_id, email)
     return RedirectResponse("/manage", status_code=303)
 
 
@@ -75,28 +102,7 @@ async def report_page(request: Request, shop_id: int):
         return HTMLResponse("업체를 찾을 수 없습니다.", status_code=404)
 
     history = await get_rank_history(shop_id, days=30)
-
-    # 주차별 그룹핑
-    from datetime import datetime, timezone
-    weeks = {1: [], 2: [], 3: [], 4: []}
-    now = datetime.now(timezone.utc)
-    for record in history:
-        checked = datetime.fromisoformat(record["checked_at"].replace("Z", "+00:00"))
-        days_ago = (now - checked).days
-        if days_ago < 7:
-            weeks[4].append(record)
-        elif days_ago < 14:
-            weeks[3].append(record)
-        elif days_ago < 21:
-            weeks[2].append(record)
-        else:
-            weeks[1].append(record)
-
-    # 주차별 평균 순위
-    weekly_avg = {}
-    for week, records in weeks.items():
-        ranks = [r["rank"] for r in records if r["rank"] is not None]
-        weekly_avg[week] = round(sum(ranks) / len(ranks)) if ranks else None
+    weekly_avg = _calc_weekly_avg(history)
 
     return templates.TemplateResponse("report.html", {
         "request": request,
@@ -106,10 +112,11 @@ async def report_page(request: Request, shop_id: int):
     })
 
 
-# --- 크론 API (매일 자동 순위 체크) ---
+# --- 크론 API ---
 
 @app.get("/cron/check-all")
 async def cron_check_all():
+    """매일 호출: 등록된 모든 업체 순위 체크 → DB 저장."""
     shops = await get_shops()
     results = []
 
@@ -133,3 +140,27 @@ async def cron_check_all():
         })
 
     return JSONResponse({"checked": len(results), "results": results})
+
+
+@app.get("/cron/send-reports")
+async def cron_send_reports():
+    """매주 월요일 호출: 이메일이 등록된 업체에 주간 리포트 발송."""
+    shops = await get_shops()
+    sent = 0
+
+    for shop in shops:
+        email = shop.get("email", "")
+        if not email:
+            continue
+
+        history = await get_rank_history(shop["id"], days=30)
+        weekly_avg = _calc_weekly_avg(history)
+
+        try:
+            await send_report(email, shop, weekly_avg, history)
+            sent += 1
+        except Exception as e:
+            import logging
+            logging.error(f"Email send failed for shop {shop['id']}: {e}")
+
+    return JSONResponse({"sent": sent})
