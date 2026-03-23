@@ -62,7 +62,7 @@ def _create_driver():
     driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
         "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
     })
-    driver.set_page_load_timeout(15)
+    driver.set_page_load_timeout(30)
     return driver
 
 
@@ -76,18 +76,21 @@ def _search_rank(keyword: str, place_name: str) -> dict:
         url = f"https://map.naver.com/p/search/{encoded}"
         logger.info(f"Navigating to: {url}")
         driver.get(url)
+        time.sleep(3)
 
         # searchIframe 대기 및 전환
-        wait = WebDriverWait(driver, 10)
+        wait = WebDriverWait(driver, 20)
         iframe = wait.until(
             EC.presence_of_element_located((By.ID, "searchIframe"))
         )
         driver.switch_to.frame(iframe)
+        logger.info("Switched to searchIframe")
 
         # 첫 번째 결과 로드 대기
-        wait.until(
+        WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, NAME_SELECTOR))
         )
+        logger.info("First result loaded")
         time.sleep(0.5)
 
         for page in range(MAX_PAGES):
