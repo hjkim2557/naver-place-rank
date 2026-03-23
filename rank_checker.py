@@ -50,9 +50,17 @@ def _create_driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--window-size=1280,720")
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-infobars")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--disable-background-networking")
+    options.add_argument("--disable-default-apps")
+    options.add_argument("--disable-sync")
+    options.add_argument("--disable-translate")
+    options.add_argument("--no-first-run")
+    options.add_argument("--single-process")
+    options.add_argument("--js-flags=--max-old-space-size=256")
     options.add_argument(
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -187,13 +195,11 @@ def _search_rank(keyword: str, place_name: str) -> dict:
                 scroll_container = None
 
             if scroll_container:
-                for _ in range(3):
-                    driver.execute_script(
-                        "arguments[0].scrollTop = arguments[0].scrollHeight",
-                        scroll_container,
-                    )
-                    time.sleep(1)
-                # 다시 맨 위로
+                driver.execute_script(
+                    "arguments[0].scrollTop = arguments[0].scrollHeight",
+                    scroll_container,
+                )
+                time.sleep(1)
                 driver.execute_script("arguments[0].scrollTop = 0", scroll_container)
                 time.sleep(1)
 

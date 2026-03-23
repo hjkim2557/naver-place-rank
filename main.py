@@ -8,6 +8,7 @@ app = FastAPI(title="네이버 플레이스 순위 조회")
 templates = Jinja2Templates(directory="templates")
 
 
+@app.head("/")
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
