@@ -15,15 +15,20 @@ async def index(request: Request):
 
 
 @app.post("/check")
-async def check(keyword: str = Form(...), place_name: str = Form(...)):
+async def check(
+    keyword: str = Form(...),
+    place_name: str = Form(""),
+    place_id: str = Form(""),
+):
     keyword = keyword.strip()
     place_name = place_name.strip()
+    place_id = place_id.strip()
 
-    if not keyword or not place_name:
+    if not keyword or (not place_name and not place_id):
         return JSONResponse(
-            {"rank": None, "message": "키워드와 업체명을 모두 입력해주세요."},
+            {"rank": None, "message": "키워드와 업체명 또는 플레이스 ID를 입력해주세요."},
             status_code=400,
         )
 
-    result = await check_rank(keyword, place_name)
+    result = await check_rank(keyword, place_name=place_name, place_id=place_id)
     return JSONResponse(result)

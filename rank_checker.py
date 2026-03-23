@@ -17,27 +17,25 @@ HEADERS = {
     "Origin": "https://m.place.naver.com",
 }
 
-# 서울 중심 좌표 (기본값)
 DEFAULT_X = "126.9784"
 DEFAULT_Y = "37.5665"
 
-DISPLAY_PER_PAGE = 10
-MAX_RANK = 30
+DISPLAY_PER_PAGE = 100
+MAX_RANK = 300
 
 
-def _build_query(keyword: str, start: int) -> list[dict]:
-    """GraphQL 쿼리 페이로드를 생성한다."""
+def _build_query(keyword: str, start: int, display: int) -> list[dict]:
     query = (
         "query {"
-        f'  restaurantList(input: {{'
+        f"  restaurantList(input: {{"
         f'    query: "{keyword}",'
         f"    start: {start},"
-        f"    display: {DISPLAY_PER_PAGE},"
+        f"    display: {display},"
         f'    deviceType: "mobile",'
         f'    x: "{DEFAULT_X}",'
         f'    y: "{DEFAULT_Y}"'
         f"  }}) {{"
-        f"    items {{ id name }}"
+        f"    items {{ id name saveCount visitorReviewCount blogCafeReviewCount }}"
         f"    total"
         f"  }}"
         f"}}"
@@ -45,19 +43,19 @@ def _build_query(keyword: str, start: int) -> list[dict]:
     return [{"query": query}]
 
 
-async def check_rank(keyword: str, place_name: str) -> dict:
+async def check_rank(keyword: str, place_name: str = "", place_id: str = "") -> dict:
     """네이버 플레이스 GraphQL API로 업체 순위를 조회한다."""
     rank = 0
 
     try:
         async with httpx.AsyncClient(
-            headers=HEADERS, timeout=10, follow_redirects=True
+            headers=HEADERS, timeout=15, follow_redirects=True
         ) as client:
             pages = MAX_RANK // DISPLAY_PER_PAGE
 
             for page in range(pages):
                 start = page * DISPLAY_PER_PAGE + 1
-                payload = _build_query(keyword, start)
+                payload = _build_query(keyword, start, DISPLAY_PER_PAGE)
 
                 resp = await client.post(GRAPHQL_URL, json=payload)
                 resp.raise_for_status()
@@ -75,16 +73,30 @@ async def check_rank(keyword: str, place_name: str) -> dict:
 
                 for item in items:
                     name = item.get("name", "")
+                    item_id = item.get("id", "")
                     if not name:
                         continue
 
                     rank += 1
-                    logger.info(f"  #{rank}: {name}")
 
-                    if place_name in name or name in place_name:
+                    # place_id로 매칭 (우선) 또는 업체명으로 매칭
+                    matched = False
+                    if place_id and item_id == place_id:
+                        matched = True
+                    elif place_name and (
+                        place_name in name or name in place_name
+                    ):
+                        matched = True
+
+                    if matched:
                         return {
                             "rank": rank,
-                            "message": f'"{place_name}"은(는) "{keyword}" 검색 결과 {rank}위입니다.',
+                            "name": name,
+                            "place_id": item_id,
+                            "save_count": item.get("saveCount", "-"),
+                            "visitor_review": item.get("visitorReviewCount", "-"),
+                            "blog_review": item.get("blogCafeReviewCount", "-"),
+                            "message": f'"{name}"은(는) "{keyword}" 검색 결과 {rank}위입니다.',
                         }
 
                     if rank >= MAX_RANK:
@@ -99,12 +111,12 @@ async def check_rank(keyword: str, place_name: str) -> dict:
                 "message": f'"{keyword}" 검색 결과를 가져오지 못했습니다. 다른 키워드로 시도해주세요.',
             }
 
+        search_term = place_name or place_id
         return {
             "rank": None,
             "message": (
-                f'"{place_name}"을(를) "{keyword}" 검색 결과 '
-                f"상위 {MAX_RANK}위 내에서 찾을 수 없습니다. "
-                f"업체명을 네이버 지도에 등록된 정확한 이름으로 입력했는지 확인해주세요."
+                f'"{search_term}"을(를) "{keyword}" 검색 결과 '
+                f"상위 {rank}위 내에서 찾을 수 없습니다."
             ),
         }
 
