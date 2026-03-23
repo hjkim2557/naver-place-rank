@@ -157,7 +157,10 @@ def _search_rank(keyword: str, place_name: str) -> dict:
     """동기 함수: Selenium으로 네이버 지도 검색 후 순위 반환."""
     driver = _get_driver()
     max_pages = 5
+    max_rank = 50
     rank = 0
+    start_time = time.time()
+    timeout = 60  # 최대 60초
 
     try:
         encoded_keyword = urllib.parse.quote(keyword)
@@ -176,6 +179,9 @@ def _search_rank(keyword: str, place_name: str) -> dict:
         time.sleep(3)
 
         for page in range(max_pages):
+            if time.time() - start_time > timeout:
+                logger.info("Timeout reached")
+                break
             logger.info(f"Scanning page {page + 1}")
 
             # 검색 결과 리스트 로드 대기
@@ -227,17 +233,24 @@ def _search_rank(keyword: str, place_name: str) -> dict:
                         "message": f'"{place_name}"은(는) "{keyword}" 검색 결과 {rank}위입니다.',
                     }
 
+                if rank >= max_rank:
+                    break
+
+            if rank >= max_rank or time.time() - start_time > timeout:
+                break
+
             # 다음 페이지로 이동
+            if rank >= max_rank or time.time() - start_time > timeout:
+                break
             if page < max_pages - 1:
                 if not _click_next_page(driver):
                     logger.info("No next page button found")
                     break
                 time.sleep(3)
 
-        total = rank if rank > 0 else 50
         return {
             "rank": None,
-            "message": f'"{place_name}"을(를) "{keyword}" 검색 결과 상위 {total}위 내에서 찾을 수 없습니다.',
+            "message": f'"{place_name}"을(를) "{keyword}" 검색 결과 상위 50위 내에서 찾을 수 없습니다. 업체명을 네이버 지도에 등록된 정확한 이름으로 입력했는지 확인해주세요.',
         }
 
     except TimeoutException:
