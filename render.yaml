@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: naver-place-rank
+    runtime: docker
+    plan: free
+    healthCheckPath: /
